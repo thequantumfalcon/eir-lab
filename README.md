@@ -1,21 +1,13 @@
 # EIR Lab
 
-Interactive **Epistemic Immune Runtime** — score whether a claim’s *force* is outrunning its *warrant*, then route continue / revise / twin / quarantine / halt / block.
+Interactive **Epistemic Immune Runtime**. Force cannot outrun warrant. Open `index.html` in any browser.
 
-## Open the lab
+## What it does now
 
-This is a single HTML file. No install.
+- **Console** — extract a claim graph, ground it on a source that could have failed, then route permission
+- **Ground** — atomic support/contradiction plus Brier-scored forecasts (world calibration, not self-fixtures)
+- **Agent** — tool traces; the membrane must fire *before* the last irreversible call
+- **Gate** — allow / escalate / block from trust + CRR + security + action
+- **Inspector / Inquiry / Membranes** — hysteresis, death certificates, the four-membrane law
 
-1. Download [`index.html`](./index.html)
-2. Open it in any browser (double-click the file)
-
-Or use the live page (GitHub Pages) once it is enabled on this repo.
-
-## What to try
-
-- Console already scores a high-force operational sample
-- **Propose action** — irreversible external action should block
-- Load **Self-sealing diagnosis** and scan
-- **Inspector** — drag dimensions; force clamp and hysteresis probe are live
-- **Calibration** — five sealed Python fixtures
-- **Inquiry** — death certificates and pickup phrase
+This is still not Inspect or FActScore. Grounding is lexical/numeric. Traces are authored. The coupling is the point: world contact writes into warrant, then the membranes decide what the claim may cause.
