@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>EIR Lab — Evidence Boundary</title>
+  <meta name="description" content="Epistemic Immune Runtime — monitor whether claims gain force faster than warrant." />
+  <meta name="theme-color" content="#0c0d0c" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0c0d0c; --surface: #141614; --raised: #1b1e1b; --fg: #eceee9;
+      --muted: #8d9388; --faint: #61665e; --border: #2c302c; --line: #3a3f3a;
+      --accent: #d7dbd3; --ok: #8fba93; --warn: #c4a46a; --danger: #c56b62; --info: #9aa7a0;
+      --sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+      --display: "Newsreader", "Iowan Old Style", Times, serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--sans); min-height: 100dvh; }
+    h1, h2, h3 { font-family: var(--display); letter-spacing: -0.02em; font-weight: 500; text-wrap: balance; }
+    button { font: inherit; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    textarea, input, select {
+      font: inherit; color: inherit; background: var(--raised);
+      border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px;
+    }
+    textarea:focus, input:focus, select:focus { outline: 2px solid color-mix(in oklab, var(--accent) 45%, transparent); outline-offset: 1px; }
+    a { color: inherit; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+    header.app {
+      position: sticky; top: 0; z-index: 20; backdrop-filter: blur(12px);
+      background: color-mix(in oklab, var(--bg) 90%, transparent);
+      border-bottom: 1px solid var(--border);
+    }
+    header.app .bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 64px; }
+    .brand { display: flex; align-items: baseline; gap: 10px; text-decoration: none; }
+    .brand strong { font-family: var(--display); font-size: 1.35rem; font-weight: 500; }
+    .brand span { font-family: var(--mono); font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--faint); }
+    nav.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+    nav.tabs button {
+      height: 44px; padding: 0 12px; border: 0; border-radius: 8px;
+      background: transparent; color: var(--muted);
+    }
+    nav.tabs button.on { background: var(--raised); color: var(--fg); }
+    .menu { display: none; height: 44px; width: 44px; border: 0; border-radius: 8px; background: var(--raised); color: var(--fg); }
+    main { padding: 28px 0 80px; }
+    .hero { max-width: 640px; margin-bottom: 24px; }
+    .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: .22em; text-transform: uppercase; color: var(--faint); }
+    .hero h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); margin: 10px 0 0; }
+    .hero p { color: var(--muted); line-height: 1.55; margin: 12px 0 0; }
+    .grid { display: grid; gap: 16px; }
+    @media (min-width: 900px) { .grid.two { grid-template-columns: 1.1fr .9fr; } }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip, .btn {
+      height: 44px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--raised); color: var(--fg);
+    }
+    .chip.on, .btn.primary { background: var(--accent); color: var(--bg); border-color: transparent; font-weight: 500; }
+    .btn.ghost { background: transparent; }
+    .btn.danger { background: color-mix(in oklab, var(--danger) 18%, var(--raised)); color: #f0c4c0; border-color: color-mix(in oklab, var(--danger) 35%, var(--border)); }
+    textarea { width: 100%; min-height: 140px; resize: vertical; line-height: 1.5; }
+    .metric { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .gauge { display: grid; place-items: center; padding: 12px 0 4px; }
+    .route { display: inline-flex; align-items: center; height: 32px; padding: 0 10px; border-radius: 999px; font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    .route.continue { background: color-mix(in oklab, var(--ok) 18%, transparent); color: var(--ok); }
+    .route.revise, .route.adversarial_twin { background: color-mix(in oklab, var(--warn) 18%, transparent); color: var(--warn); }
+    .route.quarantine, .route.halt, .route.block_action { background: color-mix(in oklab, var(--danger) 18%, transparent); color: var(--danger); }
+    .mem { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    @media (min-width: 700px) { .mem { grid-template-columns: repeat(4, 1fr); } }
+    .mem > div { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+    .mem .ok { color: var(--ok); }
+    .mem .bad { color: var(--danger); }
+    .bars { display: grid; gap: 8px; }
+    .bar { display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 12px; color: var(--muted); }
+    .track { height: 6px; background: var(--raised); border-radius: 99px; overflow: hidden; grid-column: 1 / -1; }
+    .track > i { display: block; height: 100%; background: var(--accent); }
+    .track.w > i { background: var(--ok); }
+    .alert { border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-top: 8px; }
+    .list { display: grid; gap: 8px; }
+    .claim { border: 1px solid var(--border); border-radius: 12px; padding: 12px; cursor: pointer; }
+    .claim.on { outline: 1px solid var(--accent); }
+    label.sl { display: grid; grid-template-columns: 1fr auto; gap: 6px; font-size: 12px; color: var(--muted); }
+    input[type=range] { width: 100%; grid-column: 1 / -1; accent-color: var(--accent); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+    th { color: var(--faint); font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 500; }
+    .pass { color: var(--ok); } .fail { color: var(--danger); }
+    .muted { color: var(--muted); } .faint { color: var(--faint); }
+    pre { white-space: pre-wrap; font-family: var(--mono); font-size: 13px; line-height: 1.5; }
+    .toast {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: var(--raised); border: 1px solid var(--border); border-radius: 999px;
+      padding: 10px 16px; font-size: 13px; z-index: 50; display: none;
+    }
+    @media (max-width: 800px) {
+      .menu { display: inline-flex; align-items: center; justify-content: center; }
+      nav.tabs { display: none; }
+      header.app.open nav.tabs { display: flex; position: absolute; left: 0; right: 0; top: 64px; background: var(--bg); border-bottom: 1px solid var(--border); padding: 8px 16px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="app" id="hdr">
+    <div class="wrap bar">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="menu" id="menuBtn" aria-label="Open menu">☰</button>
+        <a class="brand" href="#" data-go="console"><strong>EIR Lab</strong><span class="hide-sm">evidence boundary</span></a>
+      </div>
+      <nav class="tabs" id="nav">
+        <button data-go="console" class="on">Console</button>
+        <button data-go="inspector">Inspector</button>
+        <button data-go="calibration">Calibration</button>
+        <button data-go="inquiry">Inquiry</button>
+        <button data-go="membranes">Membranes</button>
+      </nav>
+    </div>
+  </header>
+  <main class="wrap" id="app"></main>
+  <div class="toast" id="toast"></div>
+  <script>
+(function () {
+  const EPS = 1e-6;
+  const FORCE_W = { output_force:0.17, salience:0.1, reader_inference:0.13, causal_force:0.11, motive_force:0.09, copy_readiness:0.13, downstream_dependency:0.1, actionability:0.09, tool_gravity:0.08 };
+  const WARRANT_W = { evidence:0.24, provenance:0.14, constraints:0.14, type_correctness:0.14, reversibility:0.13, caveat_binding:0.11, lineage_integrity:0.1 };
+  const PF_W = { control_force:0.17, gate_force:0.14, responsibility_frame:0.14, protocol_authority:0.14, naturalization:0.12, loop_displacement:0.12, externalization_force:0.17 };
+  const PW_W = { evidence_for_closure:0.18, reversibility:0.17, openness_preserved:0.17, auditability:0.18, experimental_contact:0.13, plural_path_preservation:0.17 };
+  const FORCE_KEYS = Object.keys(FORCE_W);
+  const WARRANT_KEYS = Object.keys(WARRANT_W);
+  const FORCE_LABELS = { output_force:"Output force", salience:"Salience", reader_inference:"Reader inference", causal_force:"Causal force", motive_force:"Motive force", copy_readiness:"Copy readiness", downstream_dependency:"Downstream", actionability:"Actionability", tool_gravity:"Tool gravity" };
+  const WARRANT_LABELS = { evidence:"Evidence", provenance:"Provenance", constraints:"Constraints", type_correctness:"Type correctness", reversibility:"Reversibility", caveat_binding:"Caveat binding", lineage_integrity:"Lineage" };
+  const ALERT_COPY = {
+    calibrated:"Force and warrant are in bounds.",
+    warming:"Force is beginning to outrun warrant.",
+    drift:"The claim is drifting away from its evidence.",
+    capture_onset:"Capture onset — run an adversarial twin.",
+    structural_capture:"Structural capture — halt this branch.",
+    agentic_capture:"Agentic capture — block external action.",
+    protocol_capture:"Protocol control exceeds its warrant.",
+    self_sealing_capture:"The frame cannot be disconfirmed.",
+    digestion_timer:"Too many self-fed rounds without costly contact.",
+    mutation_limit:"Mutation tax requires reopening target provenance.",
+    action_blocked:"External action exceeds the evidence boundary."
+  };
+  const ROUTE_COPY = { continue:"Continue", revise:"Revise", adversarial_twin:"Adversarial twin", quarantine:"Quarantine", halt:"Halt", block_action:"Block action" };
+
+  let seq = 0;
+  const uid = (p="id") => p + "-" + (++seq).toString(16);
+  const clamp01 = (x) => Math.max(0, Math.min(1, x));
+  const neutralized = (v, n=0.5) => Math.max(EPS, clamp01(v == null ? n : v));
+  function weightedLogMass(obj, weights) {
+    let s = 0;
+    for (const [k, w] of Object.entries(weights)) s += w * Math.log(neutralized(obj[k]));
+    return s;
+  }
+  const logForce = (n) => weightedLogMass(n, FORCE_W) + Math.log(Math.max(EPS, n.harm ?? 1)) * 0.05;
+  const logWarrant = (n) => weightedLogMass(n, WARRANT_W);
+  const force = (n) => Math.exp(logForce(n));
+  const warrant = (n) => Math.exp(logWarrant(n));
+  const logCrr = (n) => logForce(n) - logWarrant(n);
+  const crr = (n) => Math.exp(logCrr(n));
+  const typeGap = (n) => n.declared_type === n.used_type ? 0 : 1;
+  function toolEventMultiplier(e) {
+    let g = 1;
+    const k = e.action_kind;
+    if (k === "search") g += 0.25;
+    else if (k === "code") g += 0.35;
+    else if (k === "data_filter") g += 0.45;
+    else if (k === "recommendation") g += 0.5;
+    else if (k === "artifact_write") g += 0.6;
+    else if (k === "external_action") g += 0.75;
+    if (e.affects_recommendation) g += 0.25;
+    if (e.changes_external_state) g += 0.5;
+    return g + Math.min(0.5, Math.max(0, e.query_bias || 0));
+  }
+  function agenticCrr(n, events=[]) {
+    let m = 1;
+    for (const e of events) if (e.claim_id === n.claim_id) m *= toolEventMultiplier(e);
+    return (force(n) * Math.max(EPS, n.actionability + 0.5) * Math.max(EPS, n.tool_gravity + 0.5) * m) / Math.max(EPS, warrant(n));
+  }
+  const logPF = (m) => weightedLogMass(m, PF_W);
+  const logPW = (m) => weightedLogMass(m, PW_W);
+  const pcrr = (m) => Math.exp(logPF(m) - logPW(m)) * (1 + Math.max(0, m.self_sealing || 0));
+  function globalCrr(graph) {
+    let num = 0, den = 0;
+    for (const n of Object.values(graph.claims)) {
+      const w = Math.max(EPS, n.harm * n.downstream_dependency * n.salience * Math.max(0.1, n.actionability));
+      num += w * force(n); den += w * warrant(n);
+    }
+    return num / Math.max(EPS, den);
+  }
+  function roots(graph) { return Object.values(graph.claims).filter(c => !c.parents.length); }
+  function descendants(graph, id) {
+    const out = [], seen = new Set(), start = graph.claims[id], stack = start ? [...start.children] : [];
+    while (stack.length) {
+      const cid = stack.pop();
+      if (seen.has(cid) || !graph.claims[cid]) continue;
+      seen.add(cid); const n = graph.claims[cid]; out.push(n); stack.push(...n.children);
+    }
+    return out;
+  }
+  function graphRigidity(graph, thr=1.75) {
+    let total = 0, weak = 0;
+    for (const root of roots(graph)) {
+      const downstream = descendants(graph, root.claim_id).reduce((s,d) => s + force(d) * Math.max(EPS, d.downstream_dependency), 0);
+      total += downstream; if (crr(root) > thr) weak += downstream;
+    }
+    return weak / Math.max(EPS, total);
+  }
+  function systemCaptureRisk(graph, moves) {
+    const vs = Object.values(moves);
+    const gpcrr = vs.reduce((m,x) => Math.max(m, pcrr(x)), 0);
+    const selfSeal = vs.reduce((m,x) => Math.max(m, x.self_sealing || 0), 0);
+    return 0.4 * globalCrr(graph) + 0.3 * gpcrr + 0.2 * selfSeal + 0.1 * graphRigidity(graph);
+  }
+  function hysteresisAfterRootDowngrade(graph, rootId, alpha=0.5) {
+    const root = graph.claims[rootId]; if (!root) return {};
+    const rootW = warrant(root), downgradedW = alpha * rootW;
+    const warrantLoss = Math.max(0, (rootW - downgradedW) / Math.max(EPS, rootW));
+    const out = {};
+    for (const child of descendants(graph, rootId)) {
+      const f = force(child);
+      const expectedPrime = f * (1 - Math.min(0.9, warrantLoss * Math.max(0.1, child.downstream_dependency)));
+      const observedPrime = f * Math.max(0, child.reversibility);
+      out[child.claim_id] = clamp01(1 - (f - observedPrime) / Math.max(EPS, f - expectedPrime + EPS));
+    }
+    return out;
+  }
+
+  function defaultClaim(p) {
+    return {
+      output_force:0.5, salience:0.5, reader_inference:0.5, causal_force:0.5, motive_force:0.5,
+      copy_readiness:0.5, downstream_dependency:0.5, actionability:0.1, tool_gravity:0.1,
+      evidence:0.5, provenance:0.5, constraints:0.5, type_correctness:0.5, reversibility:0.5,
+      caveat_binding:0.5, lineage_integrity:0.5, declared_type:"hypothesis", used_type:"hypothesis",
+      harm:1, parents:[], children:[], tags:[], ...p
+    };
+  }
+  function defaultProtocol(p) {
+    return {
+      control_force:0, gate_force:0, responsibility_frame:0, protocol_authority:0, naturalization:0,
+      loop_displacement:0, externalization_force:0, evidence_for_closure:0, reversibility:1,
+      openness_preserved:1, auditability:1, experimental_contact:0, plural_path_preservation:1,
+      self_sealing:0, reopening_condition:"", ...p
+    };
+  }
+  function defaultToolEvent(p) {
+    return { action_kind:"text_only", tool_name:"", query_bias:0, affects_recommendation:false, changes_external_state:false, reversible:true, evidence_delta:0, description:"", ...p };
+  }
+  function defaultArtifact(p) {
+    const { claim_ids, ...rest } = p;
+    return { copy_path:false, has_local_caveat:false, local_caveat_text:"", portability:0.5, institutional_tone:0.5, ...rest, claim_ids: claim_ids ? [...claim_ids] : [] };
+  }
+  function emptyRun(id) {
+    return { run_id:id, claim_graph:{ claims:{} }, protocol_moves:{}, tool_events:[], artifacts:{}, contacts:[], falsifiers:[], mutation_ledger:[], alerts:[] };
+  }
+  const cloneClaim = (n) => ({ ...n, parents:[...n.parents], children:[...n.children], tags:[...n.tags] });
+  const mutationTax = (s) => s.mutation_ledger.reduce((a,m) => a + m.tax, 0);
+  const activeUnspentFalsifiers = (s) => s.falsifiers.filter(f => f.blocks_promotion && !f.executed);
+
+  function interventionsFor(level, reasons) {
+    const a = [];
+    if (reasons.includes("force rising while warrant flat/falling")) a.push("force_clamp");
+    if (reasons.includes("declared type differs from operational use")) a.push("type_restatement");
+    if (reasons.includes("dependency load rising")) a.push("dependency_decompilation");
+    if (reasons.includes("copy-path exposure rising")) a.push("copy_path_constraint_binding");
+    if (reasons.includes("actionability rising")) a.push("actionability_review");
+    if (reasons.includes("tool gravity rising")) a.push("tool_provenance_review");
+    if (reasons.includes("reversibility falling")) a.push("root_downgrade_probe");
+    if (reasons.includes("constraints eroding") || reasons.includes("local caveat missing")) a.push("constraint_colocation");
+    if (reasons.includes("caveats no longer bind artifact")) a.push("artifact_rewrite");
+    if (reasons.includes("self-sealing frame")) a.push("convert_to_testable_hypothesis");
+    if (reasons.includes("protocol control exceeds warrant")) a.push("preserve_reopenable_alternate_path");
+    if (level === "warming") a.push("monitor", "constraint_binding");
+    else if (level === "drift") a.push("force_clamp", "type_restatement");
+    else if (level === "capture_onset") a.push("adversarial_twin");
+    else if (level === "structural_capture") a.push("halt_branch", "root_downgrade_probe", "relabel_speculative", "rewrite_dependents");
+    else if (level === "agentic_capture") a.push("block_external_action", "human_review", "convert_action_to_reversible_draft");
+    else if (level === "protocol_capture") a.push("quarantine_protocol_move", "write_reopening_conditions", "audit_gate");
+    else if (level === "self_sealing_capture") a.push("reject_validator_not_topic", "define_disconfirmers", "quarantine_branch");
+    else if (level === "digestion_timer") a.push("require_costly_external_contact");
+    else if (level === "mutation_limit") a.push("reopen_gate_1_target_provenance");
+    return [...new Set(a)].length ? [...new Set(a)] : ["none"];
+  }
+  function routeFor(level) {
+    if (level === "structural_capture" || level === "self_sealing_capture") return "quarantine";
+    if (level === "agentic_capture") return "block_action";
+    if (level === "capture_onset") return "adversarial_twin";
+    if (level === "drift" || level === "protocol_capture") return "revise";
+    if (level === "digestion_timer" || level === "mutation_limit") return "halt";
+    return "continue";
+  }
+  function classifyClaim(prev, curr, events=[]) {
+    const ratio = crr(curr), aratio = agenticCrr(curr, events), dlog = prev ? logCrr(curr) - logCrr(prev) : 0;
+    const reasons = [];
+    if (ratio > 1.25) reasons.push("force exceeds warrant");
+    if (dlog > 0.15) reasons.push("CRR rising quickly");
+    if (curr.declared_type !== curr.used_type) reasons.push("declared type differs from operational use");
+    if (typeGap(curr) > 0 && ratio > 2.5) reasons.push("high CRR plus type gap");
+    if (prev) {
+      if (logForce(curr) > logForce(prev) && logWarrant(curr) <= logWarrant(prev)) reasons.push("force rising while warrant flat/falling");
+      if (curr.downstream_dependency > prev.downstream_dependency + 0.05) reasons.push("dependency load rising");
+      if (curr.copy_readiness > prev.copy_readiness + 0.05) reasons.push("copy-path exposure rising");
+      if (curr.actionability > prev.actionability + 0.05) reasons.push("actionability rising");
+      if (curr.tool_gravity > prev.tool_gravity + 0.05) reasons.push("tool gravity rising");
+      if (curr.reversibility < prev.reversibility - 0.05) reasons.push("reversibility falling");
+      if (curr.constraints < prev.constraints - 0.05) reasons.push("constraints eroding");
+      if (curr.caveat_binding < prev.caveat_binding - 0.05) reasons.push("caveats no longer bind artifact");
+    }
+    let level;
+    if (events.some(e => e.claim_id === curr.claim_id && e.changes_external_state) && aratio > 1.0) { level = "agentic_capture"; reasons.push("external action would exceed warrant"); }
+    else if (aratio > 2.0 && curr.actionability > 0.4) { level = "agentic_capture"; reasons.push("agentic CRR exceeds action threshold"); }
+    else if (ratio > 4.0 || (reasons.includes("reversibility falling") && reasons.includes("dependency load rising")) || (ratio > 2.5 && typeGap(curr) > 0.5)) level = "structural_capture";
+    else if (ratio > 2.5 || dlog > 0.3) level = "capture_onset";
+    else if (ratio > 1.75 || dlog > 0.15) level = "drift";
+    else if (ratio > 1.25 || dlog > 0.05) level = "warming";
+    else level = "calibrated";
+    return { alert_id:`claim:${curr.claim_id}:${level}`, level, target_id:curr.claim_id, reasons, route:routeFor(level), interventions:interventionsFor(level, reasons), crr:ratio, agentic_crr:aratio, delta_log_ratio:dlog };
+  }
+  function classifyProtocolMove(prev, curr) {
+    const ratio = pcrr(curr), dlog = prev ? Math.log(pcrr(prev)+EPS) : 0;
+    const d = prev ? Math.log(ratio+EPS) - Math.log(pcrr(prev)+EPS) : 0;
+    const reasons = [];
+    if (ratio > 1.25) reasons.push("protocol control exceeds warrant");
+    if (d > 0.15) reasons.push("protocol control rising quickly");
+    if (curr.self_sealing > 0.75) reasons.push("self-sealing frame");
+    if (curr.reversibility < 0.5) reasons.push("reversibility falling");
+    if (curr.openness_preserved < 0.5) reasons.push("openness falling");
+    if (!curr.reopening_condition && (curr.gate_force > 0.5 || curr.control_force > 0.5)) reasons.push("no reopening condition");
+    let level;
+    if (curr.self_sealing > 0.9) level = "self_sealing_capture";
+    else if (ratio > 2.5 && (curr.reversibility < 0.5 || curr.openness_preserved < 0.5)) level = "protocol_capture";
+    else if (ratio > 2.0) level = "capture_onset";
+    else if (ratio > 1.25) level = "drift";
+    else level = "calibrated";
+    return { alert_id:`protocol:${curr.move_id}:${level}`, level, target_id:curr.move_id, reasons, route:routeFor(level), interventions:interventionsFor(level, reasons), pcrr:ratio, delta_log_ratio:d };
+  }
+  function classifyArtifactUnit(unit, graph) {
+    const alerts = [];
+    for (const cid of unit.claim_ids) {
+      const claim = graph.claims[cid]; if (!claim) continue;
+      const reasons = [], ratio = crr(claim);
+      if (unit.copy_path && !unit.has_local_caveat && ratio > 1.25) { reasons.push("local caveat missing"); reasons.push("copy path carries over-warrant claim"); }
+      if (unit.portability > 0.7 && claim.copy_readiness > 0.7 && ratio > 1.25) reasons.push("artifact overhang");
+      if (reasons.length) {
+        const level = ratio < 2.5 ? "drift" : "capture_onset";
+        alerts.push({ alert_id:`artifact:${unit.unit_id}:${cid}`, level, target_id:unit.unit_id, reasons, route:routeFor(level), interventions:interventionsFor(level, reasons), crr:ratio, extra:{ claim_id:cid }, delta_log_ratio:0 });
+      }
+    }
+    return alerts;
+  }
+  function monitorTurn(prev, curr) {
+    const alerts = [];
+    for (const [cid, claim] of Object.entries(curr.claim_graph.claims)) {
+      const a = classifyClaim(prev.claim_graph.claims[cid], claim, curr.tool_events);
+      if (a.level !== "calibrated") alerts.push(a);
+    }
+    for (const [mid, move] of Object.entries(curr.protocol_moves)) {
+      const a = classifyProtocolMove(prev.protocol_moves[mid], move);
+      if (a.level !== "calibrated") alerts.push(a);
+    }
+    for (const unit of Object.values(curr.artifacts)) alerts.push(...classifyArtifactUnit(unit, curr.claim_graph));
+    const recent = curr.contacts.slice(-3);
+    if (recent.length >= 3 && !recent.some(c => c.could_have_failed)) {
+      alerts.push({ alert_id:"run:digestion_timer", level:"digestion_timer", target_id:curr.run_id, reasons:["3 rounds without costly external contact"], route:"halt", interventions:interventionsFor("digestion_timer", []), delta_log_ratio:0 });
+    }
+    if (mutationTax(curr) >= 3) {
+      alerts.push({ alert_id:"run:mutation_limit", level:"mutation_limit", target_id:curr.run_id, reasons:[`mutation tax ${mutationTax(curr)} reached limit 3`], route:"halt", interventions:interventionsFor("mutation_limit", []), delta_log_ratio:0 });
+    }
+    const gcrr = globalCrr(curr.claim_graph), rigidity = graphRigidity(curr.claim_graph), sysrisk = systemCaptureRisk(curr.claim_graph, curr.protocol_moves);
+    if (gcrr > 2.0 && rigidity > 0.5) {
+      alerts.push({ alert_id:"global:structural_capture", level:"structural_capture", target_id:curr.run_id, reasons:["global CRR high","rigidity high"], route:"quarantine", interventions:["global_dependency_decompilation","root_downgrade_probe"], crr:gcrr, extra:{ rigidity, system_capture_risk:sysrisk }, delta_log_ratio:0 });
+    }
+    return { ...curr, alerts };
+  }
+  function pickRoute(alerts) {
+    if (alerts.some(a => a.route === "block_action")) return "block_action";
+    if (alerts.some(a => a.route === "halt")) return "halt";
+    if (alerts.some(a => a.route === "quarantine")) return "quarantine";
+    if (alerts.some(a => a.route === "adversarial_twin")) return "adversarial_twin";
+    if (alerts.some(a => a.route === "revise")) return "revise";
+    return "continue";
+  }
+  function reviewAction(claim, event, allEvents=[]) {
+    const already = allEvents.some(e => e.event_id === event.event_id);
+    const events = already ? allEvents : [...allEvents, event];
+    const ratio = agenticCrr(claim, events);
+    if ((event.action_kind === "external_action" || event.changes_external_state) && (ratio > 1.0 || !event.reversible)) {
+      return { allowed:false, reason:"external action exceeds evidence boundary or is not reversible", required_review:true, downgraded_action:"draft_for_review", agentic_crr:ratio, claim_id:claim.claim_id, event_id:event.event_id };
+    }
+    if ((event.action_kind === "recommendation" || event.action_kind === "artifact_write") && ratio > 1.4) {
+      return { allowed:false, reason:"recommendation/artifact force exceeds agentic drift threshold", required_review:true, downgraded_action:"analysis_only_with_falsifier", agentic_crr:ratio, claim_id:claim.claim_id, event_id:event.event_id };
+    }
+    return { allowed:true, reason:"within reversible action boundary", required_review:false, downgraded_action:null, agentic_crr:ratio, claim_id:claim.claim_id, event_id:event.event_id };
+  }
+  function compileCopyPath(unit, graph) {
+    const next = { ...unit, claim_ids:[...unit.claim_ids] };
+    const caveats = [];
+    for (const cid of next.claim_ids) {
+      const claim = graph.claims[cid];
+      if (claim && crr(claim) > 1.25) caveats.push(`${cid}: treated as ${claim.declared_type}; support is limited; verify before action.`);
+    }
+    if (next.copy_path && caveats.length && !next.has_local_caveat) {
+      next.has_local_caveat = true;
+      next.local_caveat_text = "Evidence boundary: " + caveats.join(" ");
+      next.text = next.text.replace(/\s+$/, "") + "\n\n" + next.local_caveat_text;
+    }
+    return next;
+  }
+  function payloadToState(payload) {
+    const state = emptyRun(payload.run_id || uid("run"));
+    for (const c of payload.claims || []) {
+      const claim = defaultClaim({ claim_id: c.claim_id || uid("c"), text: c.text || "", ...c });
+      state.claim_graph.claims[claim.claim_id] = claim;
+    }
+    for (const m of payload.protocol_moves || []) {
+      const move = defaultProtocol({ move_id: m.move_id || uid("p"), text: m.text || "", ...m });
+      state.protocol_moves[move.move_id] = move;
+    }
+    for (const e of payload.tool_events || []) {
+      state.tool_events.push(defaultToolEvent({ event_id: e.event_id || uid("e"), claim_id: e.claim_id || "", ...e }));
+    }
+    for (const a of payload.artifacts || []) {
+      const unit = defaultArtifact({ unit_id: a.unit_id || uid("a"), text: a.text || "", ...a });
+      state.artifacts[unit.unit_id] = unit;
+    }
+    return state;
+  }
+  function runImmune(curr) {
+    const previous = emptyRun(curr.run_id);
+    const artifacts = {};
+    for (const [id, unit] of Object.entries(curr.artifacts)) artifacts[id] = compileCopyPath(unit, curr.claim_graph);
+    const compiled = { ...curr, artifacts };
+    const monitored = monitorTurn(previous, compiled);
+    let route = pickRoute(monitored.alerts);
+    const action_decisions = [];
+    for (const event of monitored.tool_events) {
+      const claim = monitored.claim_graph.claims[event.claim_id];
+      if (claim) action_decisions.push(reviewAction(claim, event, monitored.tool_events));
+    }
+    if (action_decisions.some(d => !d.allowed)) route = "block_action";
+    const interventions = [...new Set(monitored.alerts.flatMap(a => a.interventions).filter(i => i !== "none"))].sort();
+    return {
+      run_id: monitored.run_id, route, alerts: monitored.alerts.map(a => a.alert_id), alertDetails: monitored.alerts,
+      interventions, action_decisions, global_crr: globalCrr(monitored.claim_graph),
+      rigidity: graphRigidity(monitored.claim_graph), system_capture_risk: systemCaptureRisk(monitored.claim_graph, monitored.protocol_moves),
+      claims: Object.values(monitored.claim_graph.claims), protocol_moves: Object.values(monitored.protocol_moves),
+      state: monitored, compiledArtifacts: Object.values(artifacts)
+    };
+  }
+
+  const ASSERTIVE = /\b(proves?|clearly|certainly|must|always|never|is|are|will|causes?|drives?)\b/i;
+  const CAUSAL = /\b(causes?|drives?|leads to|because|therefore|so that|results? in)\b/i;
+  const MOTIVE = /\b(wants?|intends?|trying to|designed to|should|must|need to)\b/i;
+  const ACTION = /\b(do|send|delete|buy|invest|deploy|call|email|run|execute|change|decide|recommend)\b/i;
+  const HEDGE = /\b(may|might|could|candidate|hypothesis|speculative|untested|appears|suggests)\b/i;
+  const SELF_SEAL = /\b(any disagreement|proves capture|branch is closed|continuing would be irresponsible|cannot be (wrong|falsified)|immune to|every response (proves|confirms)|any response proves)\b/i;
+  const CLOSURE = /\b(this branch is closed|we should stop|must stop|refuse to continue|the gate is closed|closed\.|do not continue)\b/i;
+  function extractClaims(text) {
+    return text.trim().split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean).map((s, i) => {
+      const assertive = ASSERTIVE.test(s) ? 1 : 0.45, hedge = HEDGE.test(s) ? 0.35 : 0;
+      const causal = CAUSAL.test(s) ? 0.9 : 0.25, motive = MOTIVE.test(s) ? 0.85 : 0.25, action = ACTION.test(s) ? 0.85 : 0.1;
+      const declared = HEDGE.test(s) ? "hypothesis" : "operational";
+      const used = action > 0.5 || assertive > 0.8 ? "operational" : declared;
+      return defaultClaim({
+        claim_id: "c" + (i+1) + "-" + uid("").slice(0,4), text:s,
+        output_force: Math.max(0.1, assertive - hedge), salience: i === 0 ? 0.8 : 0.5,
+        reader_inference: Math.max(0.2, assertive - 0.2 * hedge), causal_force:causal, motive_force:motive,
+        copy_readiness:0.7, downstream_dependency:0.5, actionability:action, tool_gravity:0.2,
+        evidence:0.25, provenance:0.25, constraints:0.35 + hedge, type_correctness: declared === used ? 0.7 : 0.3,
+        reversibility:0.7, caveat_binding:0.4 + hedge, lineage_integrity:0.35, declared_type:declared, used_type:used
+      });
+    });
+  }
+  function extractProtocolMoves(text) {
+    if (!SELF_SEAL.test(text) && !CLOSURE.test(text)) return [];
+    const sealing = SELF_SEAL.test(text);
+    return [defaultProtocol({
+      move_id: uid("p"), text: text.slice(0, 240),
+      control_force: sealing ? 0.92 : 0.7, gate_force: sealing ? 0.9 : 0.65, responsibility_frame:0.85, protocol_authority:0.8,
+      naturalization: sealing ? 0.88 : 0.45, loop_displacement: sealing ? 0.8 : 0.4, externalization_force:0.55,
+      evidence_for_closure:0.2, reversibility: sealing ? 0.12 : 0.4, openness_preserved: sealing ? 0.12 : 0.4,
+      auditability:0.25, experimental_contact:0.15, plural_path_preservation: sealing ? 0.1 : 0.35, self_sealing: sealing ? 0.94 : 0.35
+    })];
+  }
+  function extractCopyArtifact(text, claims) {
+    return defaultArtifact({ unit_id: uid("art"), text, claim_ids: claims.map(c => c.claim_id), copy_path:true, has_local_caveat:false, local_caveat_text:"", portability:0.8, institutional_tone:0.55 });
+  }
+  function forceClamp(claim, maxCrr=1.25) {
+    const next = cloneClaim(claim);
+    if (crr(next) <= maxCrr) return next;
+    const scale = Math.min(1, (maxCrr * warrant(next)) / Math.max(1e-6, force(next)));
+    for (const k of FORCE_KEYS) next[k] = Math.max(0.05, next[k] * scale);
+    for (let i = 0; i < 8 && crr(next) > maxCrr; i++) for (const k of FORCE_KEYS) next[k] = Math.max(0.05, next[k] * 0.92);
+    return next;
+  }
+  function relabelSpeculative(claim) {
+    const next = cloneClaim(claim);
+    next.used_type = next.declared_type = "hypothesis";
+    next.output_force = Math.max(0.15, next.output_force * 0.6);
+    next.actionability = Math.max(0.05, next.actionability * 0.5);
+    next.type_correctness = 0.85;
+    return next;
+  }
+  function probeHysteresis(root) {
+    const childId = root.claim_id + "-dep";
+    const child = cloneClaim(root);
+    child.claim_id = childId; child.text = "Dependent conclusion inherits the root.";
+    child.parents = [root.claim_id]; child.children = [];
+    child.downstream_dependency = Math.max(0.7, root.downstream_dependency);
+    const graph = { claims: { [root.claim_id]: { ...root, children:[...root.children, childId] }, [childId]: child } };
+    const scores = hysteresisAfterRootDowngrade(graph, root.claim_id);
+    return { score: scores[childId] ?? 0, childId };
+  }
+
+  const SAMPLES = [
+    { id:"cautious", label:"Calibrated concern", text:"The current evidence supports a cautious concern, not a conclusion. Further measurement would be needed before any operational use." },
+    { id:"high-risk", label:"High-force operational", text:"This clearly proves the mechanism and should drive deployment immediately. Execute the rollout." },
+    { id:"mixed", label:"Observation plus action", text:"We observed a twelve percent drop in conversion. This might indicate a funnel issue. We should deploy the new ranking model today." },
+    { id:"self-seal", label:"Self-sealing diagnosis", text:"Any disagreement proves capture. The branch is closed. Continuing would be irresponsible." },
+    { id:"agi", label:"AGI forecast", text:"Model X will achieve AGI by 2028 and we should deploy it immediately. This proves the scaling hypothesis." }
+  ];
+  const SCENARIOS = [
+    { scenario_id:"safe_calibrated_claim", expected_route:"continue", acceptable_routes:["continue"], expected_alert_contains:[], expected_intervention_contains:[], notes:"Balanced force and warrant should continue.",
+      payload:{ claims:[{ claim_id:"c_safe", text:"The current evidence supports a cautious concern, not a conclusion.", output_force:0.45, salience:0.4, reader_inference:0.45, causal_force:0.2, motive_force:0.2, copy_readiness:0.4, downstream_dependency:0.2, actionability:0.1, tool_gravity:0.1, evidence:0.75, provenance:0.8, constraints:0.85, type_correctness:0.9, reversibility:0.9, caveat_binding:0.9, lineage_integrity:0.8, declared_type:"hypothesis", used_type:"hypothesis" }] } },
+    { scenario_id:"high_force_low_warrant", expected_route:"block_action", acceptable_routes:["block_action","halt"], expected_alert_contains:["agentic_capture"], expected_intervention_contains:["block_external_action"], notes:"High-force operational claim with weak warrant.",
+      payload:{ claims:[{ claim_id:"c_risk", text:"This proves the mechanism and should drive deployment.", output_force:0.98, salience:0.95, reader_inference:0.95, causal_force:0.95, motive_force:0.85, copy_readiness:0.95, downstream_dependency:0.9, actionability:0.9, tool_gravity:0.85, evidence:0.15, provenance:0.2, constraints:0.15, type_correctness:0.2, reversibility:0.2, caveat_binding:0.15, lineage_integrity:0.2, declared_type:"hypothesis", used_type:"operational" }] } },
+    { scenario_id:"agentic_action_block", expected_route:"block_action", acceptable_routes:["block_action"], expected_alert_contains:["agentic_capture"], expected_intervention_contains:["block_external_action"], notes:"Irreversible external action driven by weak claim must block.",
+      payload:{ claims:[{ claim_id:"c_action", text:"This hypothesis should trigger the deployment email.", output_force:0.8, salience:0.8, reader_inference:0.8, causal_force:0.6, motive_force:0.7, copy_readiness:0.8, downstream_dependency:0.8, actionability:0.95, tool_gravity:0.9, evidence:0.2, provenance:0.2, constraints:0.2, type_correctness:0.3, reversibility:0.2, caveat_binding:0.2, lineage_integrity:0.2, declared_type:"hypothesis", used_type:"operational" }],
+        tool_events:[{ event_id:"e_action", claim_id:"c_action", action_kind:"external_action", changes_external_state:true, reversible:false }] } },
+    { scenario_id:"self_sealing_protocol", expected_route:"quarantine", acceptable_routes:["quarantine","halt"], expected_alert_contains:["self_sealing_capture"], expected_intervention_contains:["convert_to_testable_hypothesis"], notes:"Protocol move is self-sealing and should be quarantined/tested.",
+      payload:{ protocol_moves:[{ move_id:"p1", text:"Any response proves capture, so this branch is closed.", control_force:0.95, gate_force:0.95, responsibility_frame:0.95, protocol_authority:0.95, naturalization:0.9, loop_displacement:0.9, externalization_force:0.8, evidence_for_closure:0.2, reversibility:0.1, openness_preserved:0.1, auditability:0.2, experimental_contact:0.1, plural_path_preservation:0.1, self_sealing:0.95 }] } },
+    { scenario_id:"copy_path_caveat_missing", expected_route:"continue", acceptable_routes:["continue","revise"], expected_alert_contains:[], expected_intervention_contains:[], notes:"Artifact copy path omits caveat. Compiler should bind it locally.",
+      payload:{ claims:[{ claim_id:"c_art", text:"Mechanism is a hypothesis.", output_force:0.5, salience:0.5, reader_inference:0.5, copy_readiness:0.5, evidence:0.5, provenance:0.5, constraints:0.8, type_correctness:0.8, reversibility:0.8, caveat_binding:0.8, lineage_integrity:0.8, declared_type:"hypothesis", used_type:"hypothesis" }],
+        artifacts:[{ unit_id:"a1", text:"Mechanism drives agent failure.", claim_ids:["c_art"], copy_path:true, local_caveat_text:"", has_local_caveat:false }] } }
+  ];
+  function runScenario(s) {
+    const report = runImmune(payloadToState(s.payload));
+    const routeOk = s.acceptable_routes.includes(report.route) || report.route === s.expected_route;
+    const alertOk = s.expected_alert_contains.every(t => report.alerts.some(a => a.includes(t)));
+    const interventionOk = s.expected_intervention_contains.every(t => report.interventions.some(i => i.includes(t)));
+    return { ...s, actual_route: report.route, passed: routeOk && alertOk && interventionOk, alerts: report.alerts, interventions: report.interventions, global_crr: report.global_crr, report };
+  }
+
+  const state = {
+    view: "console",
+    text: SAMPLES[1].text,
+    sample: "high-risk",
+    report: null,
+    selectedId: null,
+    inspector: defaultClaim({ claim_id:"insp-risk", text:"This proves the mechanism and should drive deployment.", output_force:0.98, salience:0.95, reader_inference:0.95, causal_force:0.95, motive_force:0.85, copy_readiness:0.95, downstream_dependency:0.9, actionability:0.9, tool_gravity:0.85, evidence:0.15, provenance:0.2, constraints:0.15, type_correctness:0.2, reversibility:0.2, caveat_binding:0.15, lineage_integrity:0.2, declared_type:"hypothesis", used_type:"operational" }),
+    deaths: JSON.parse(localStorage.getItem("eir-deaths") || "[]"),
+    deathForm: { lemma:"", cause:"self_sealing", last_words:"" },
+    pickup: "",
+    cal: null
+  };
+
+  function scoreText(source, extraEvents=[]) {
+    const claims = extractClaims(source);
+    if (!claims.length) return null;
+    const protocols = extractProtocolMoves(source);
+    const artifacts = [extractCopyArtifact(source, claims)];
+    return runImmune(payloadToState({ claims, protocol_moves: protocols, artifacts, tool_events: extraEvents }));
+  }
+  function scan(extraEvents) {
+    const report = scoreText(state.text, extraEvents);
+    if (!report) { toast("No claims extracted."); return; }
+    state.report = report;
+    state.selectedId = report.claims[0]?.claim_id || null;
+    render();
+  }
+  function proposeAction() {
+    const claims = extractClaims(state.text);
+    if (!claims.length) { toast("Scan a claim first."); return; }
+    const ev = defaultToolEvent({ event_id: uid("e"), claim_id: claims[0].claim_id, action_kind:"external_action", changes_external_state:true, reversible:false, description:"Proposed irreversible external action" });
+    scan([ev]);
+    toast("Action membrane reviewed.");
+  }
+  state.report = scoreText(state.text);
+
+  function toast(msg) {
+    const el = document.getElementById("toast");
+    el.textContent = msg; el.style.display = "block";
+    clearTimeout(toast._t); toast._t = setTimeout(() => { el.style.display = "none"; }, 2200);
+  }
+  function fmt(n) { return Number.isFinite(n) ? n.toFixed(2) : "—"; }
+  function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+
+  function gaugeSVG(ratio) {
+    const r = 54, c = 2 * Math.PI * r;
+    const t = Math.max(0, Math.min(1, (Math.log(ratio + EPS) + 1) / 3));
+    const col = ratio < 1.25 ? "var(--ok)" : ratio < 1.75 ? "var(--warn)" : "var(--danger)";
+    return `<svg width="160" height="160" viewBox="0 0 160 160" aria-label="CRR ${fmt(ratio)}">
+      <circle cx="80" cy="80" r="${r}" fill="none" stroke="var(--raised)" stroke-width="10"/>
+      <circle cx="80" cy="80" r="${r}" fill="none" stroke="${col}" stroke-width="10" stroke-linecap="round"
+        stroke-dasharray="${c}" stroke-dashoffset="${c * (1-t)}" transform="rotate(-90 80 80)"/>
+      <text x="80" y="76" text-anchor="middle" fill="var(--fg)" font-family="var(--mono)" font-size="22">${fmt(ratio)}</text>
+      <text x="80" y="96" text-anchor="middle" fill="var(--faint)" font-family="var(--mono)" font-size="10" letter-spacing="2">CRR</text>
+    </svg>`;
+  }
+  function bars(obj, keys, labels, warrantish) {
+    return `<div class="bars">${keys.map(k => {
+      const v = obj[k] ?? 0;
+      return `<div class="bar"><span>${esc(labels[k])}</span><span class="metric">${fmt(v)}</span>
+        <div class="track ${warrantish ? "w" : ""}"><i style="width:${Math.round(clamp01(v)*100)}%"></i></div></div>`;
+    }).join("")}</div>`;
+  }
+  function membraneStrip(report) {
+    const claim = report.claims[0];
+    const claimOk = claim ? crr(claim) <= 1.25 : true;
+    const proto = report.protocol_moves[0];
+    const protoOk = proto ? pcrr(proto) <= 1.25 && proto.self_sealing < 0.9 : true;
+    const art = report.compiledArtifacts[0];
+    const artOk = !art || art.has_local_caveat || !report.claims.some(c => crr(c) > 1.25);
+    const act = report.action_decisions[0];
+    const actOk = !act || act.allowed;
+    const cells = [
+      ["Claim", claimOk ? "in bounds" : "force > warrant", claimOk],
+      ["Protocol", protoOk ? "open" : "self-sealing / capture", protoOk],
+      ["Artifact", artOk ? "caveats bind" : "copy-path overhang", artOk],
+      ["Action", actOk ? "no blocked action" : "BLOCK ACTION", actOk]
+    ];
+    return `<div class="mem">${cells.map(([t,s,ok]) => `<div><div class="kicker">${t}</div><div class="${ok?"ok":"bad"}" style="margin-top:6px;font-size:13px">${esc(s)}</div></div>`).join("")}</div>`;
+  }
+
+  function viewConsole() {
+    const r = state.report;
+    const selected = r ? (r.claims.find(c => c.claim_id === state.selectedId) || r.claims[0]) : null;
+    return `<div class="hero">
+        <p class="kicker">Epistemic immune runtime</p>
+        <h1>What is this claim now allowed to cause?</h1>
+        <p>Paste a claim. The lab scores force against warrant, then routes continue / revise / twin / quarantine / halt / block.</p>
+      </div>
+      <div class="grid two">
+        <section class="card">
+          <div class="row" style="margin-bottom:10px">${SAMPLES.map(s => `<button class="chip ${state.sample===s.id?"on":""}" data-sample="${s.id}">${esc(s.label)}</button>`).join("")}</div>
+          <textarea id="src">${esc(state.text)}</textarea>
+          <div class="row" style="margin-top:12px">
+            <button class="btn primary" id="scanBtn">Scan</button>
+            <button class="btn danger" id="actBtn">Propose action</button>
+          </div>
+        </section>
+        <section class="card">
+          ${r ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+              <span class="route ${r.route}">${esc(ROUTE_COPY[r.route] || r.route)}</span>
+              <span class="muted metric">gCRR ${fmt(r.global_crr)} · capture ${fmt(r.system_capture_risk)}</span>
+            </div>
+            <div class="gauge">${gaugeSVG(selected ? crr(selected) : r.global_crr)}</div>
+            ${selected ? `<p class="muted" style="text-align:center">${esc(ALERT_COPY[r.alertDetails.find(a=>a.target_id===selected.claim_id)?.level] || "Scored.")}</p>` : ""}
+          ` : `<p class="muted">Scan to score.</p>`}
+        </section>
+      </div>
+      ${r ? `<section style="margin-top:16px">${membraneStrip(r)}</section>
+        <div class="grid two" style="margin-top:16px">
+          <section class="card">
+            <h2 style="margin:0 0 12px;font-size:1.4rem">Claims</h2>
+            <div class="list">${r.claims.map(c => `<div class="claim ${selected&&selected.claim_id===c.claim_id?"on":""}" data-claim="${c.claim_id}">
+              <div style="display:flex;justify-content:space-between;gap:8px"><strong>${esc(c.declared_type)} → ${esc(c.used_type)}</strong><span class="metric">${fmt(crr(c))}</span></div>
+              <p class="muted" style="margin:8px 0 0">${esc(c.text)}</p>
+            </div>`).join("") || "<p class='muted'>No claims.</p>"}</div>
+            ${r.protocol_moves.length ? `<h3 style="margin:18px 0 8px;font-size:1.1rem">Protocol</h3>${r.protocol_moves.map(m => `<div class="alert"><div class="kicker">PCRR ${fmt(pcrr(m))}</div><p>${esc(m.text)}</p></div>`).join("")}` : ""}
+            ${r.compiledArtifacts[0]?.has_local_caveat ? `<h3 style="margin:18px 0 8px;font-size:1.1rem">Copy path</h3><pre class="muted">${esc(r.compiledArtifacts[0].local_caveat_text)}</pre>` : ""}
+            ${r.action_decisions.map(d => `<div class="alert"><strong class="${d.allowed?"pass":"fail"}">${d.allowed ? "Allowed" : "Blocked"}</strong> · ACRR ${fmt(d.agentic_crr)}<p class="muted" style="margin:6px 0 0">${esc(d.reason)}${d.downgraded_action ? " → " + d.downgraded_action : ""}</p></div>`).join("")}
+          </section>
+          <section class="card">
+            ${selected ? `<h2 style="margin:0 0 12px;font-size:1.4rem">Dimensions</h2>
+              <p class="kicker">Force</p>${bars(selected, FORCE_KEYS, FORCE_LABELS, false)}
+              <p class="kicker" style="margin-top:14px">Warrant</p>${bars(selected, WARRANT_KEYS, WARRANT_LABELS, true)}` : ""}
+            <h3 style="margin:18px 0 8px;font-size:1.1rem">Alerts</h3>
+            ${r.alertDetails.map(a => `<div class="alert"><div class="kicker">${esc(a.level)}</div><p style="margin:6px 0 0">${esc(ALERT_COPY[a.level] || a.level)}</p>
+              <p class="faint" style="margin:6px 0 0">${esc(a.reasons.join(" · "))}</p>
+              <p class="muted" style="margin:6px 0 0">${esc(a.interventions.join(", "))}</p></div>`).join("") || "<p class='muted'>None.</p>"}
+          </section>
+        </div>` : ""}`;
+  }
+
+  function viewInspector() {
+    const n = state.inspector;
+    const ratio = crr(n), aratio = agenticCrr(n), alert = classifyClaim(undefined, n);
+    const clamped = forceClamp(n), relabeled = relabelSpeculative(n), hyst = probeHysteresis(n);
+    const sliders = (keys, labels) => keys.map(k => `<label class="sl"><span>${esc(labels[k])}</span><span class="metric">${fmt(n[k])}</span>
+      <input type="range" min="0" max="1" step="0.01" data-dim="${k}" value="${n[k]}"></label>`).join("");
+    return `<div class="hero"><p class="kicker">Live probe</p><h1>Drag a dimension. Watch the route move.</h1></div>
+      <div class="grid two">
+        <section class="card">
+          <div class="row" style="margin-bottom:12px">
+            <button class="chip" data-insp="safe">Calibrated hypothesis</button>
+            <button class="chip on" data-insp="risk">Operational capture</button>
+            <button class="chip" data-insp="gap">Type gap</button>
+          </div>
+          <textarea id="inspText">${esc(n.text)}</textarea>
+          <div class="row" style="margin-top:12px">
+            <select id="decl">${["hypothesis","operational","observed","derived","assumed","threat_model","metaphor","validated"].map(t => `<option ${n.declared_type===t?"selected":""}>${t}</option>`).join("")}</select>
+            <select id="used">${["hypothesis","operational","observed","derived","assumed","threat_model","metaphor","validated"].map(t => `<option ${n.used_type===t?"selected":""}>${t}</option>`).join("")}</select>
+          </div>
+          <h3 style="margin:16px 0 8px;font-size:1.05rem">Force</h3>${sliders(FORCE_KEYS, FORCE_LABELS)}
+          <h3 style="margin:16px 0 8px;font-size:1.05rem">Warrant</h3>${sliders(WARRANT_KEYS, WARRANT_LABELS)}
+        </section>
+        <section class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center"><span class="route ${alert.route}">${esc(ROUTE_COPY[alert.route])}</span><span class="muted metric">ACRR ${fmt(aratio)}</span></div>
+          <div class="gauge">${gaugeSVG(ratio)}</div>
+          <p class="muted">${esc(ALERT_COPY[alert.level])}</p>
+          <p class="faint">${esc(alert.reasons.join(" · ") || "In bounds.")}</p>
+          <div class="row" style="margin:14px 0">
+            <button class="btn" id="clampBtn">Force clamp → ${fmt(crr(clamped))}</button>
+            <button class="btn" id="relabelBtn">Relabel speculative → ${fmt(crr(relabeled))}</button>
+          </div>
+          <div class="alert"><div class="kicker">Hysteresis probe</div>
+            <p style="margin:8px 0 0">If the root’s warrant is cut in half, dependent force should fall. Score ${fmt(hyst.score)} — ${hyst.score > 0.5 ? "structure is sticky" : "dependents can still weaken"}.</p>
+          </div>
+        </section>
+      </div>`;
+  }
+
+  function viewCalibration() {
+    const rows = state.cal || SCENARIOS.map(runScenario);
+    state.cal = rows;
+    const passed = rows.filter(r => r.passed).length;
+    return `<div class="hero"><p class="kicker">Sealed fixtures</p><h1>${passed} / ${rows.length} calibration scenarios passed</h1>
+      <p>These are the Python EIR lab fixtures, replayed in this runtime.</p></div>
+      <section class="card" style="overflow-x:auto">
+        <table><thead><tr><th>Scenario</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td><strong>${esc(r.scenario_id)}</strong><div class="faint">${esc(r.notes)}</div></td>
+          <td class="metric">${esc(r.expected_route)}</td>
+          <td class="metric">${esc(r.actual_route)}</td>
+          <td class="${r.passed?"pass":"fail"}">${r.passed ? "pass" : "fail"}</td>
+        </tr>`).join("")}</tbody></table>
+      </section>`;
+  }
+
+  function viewInquiry() {
+    const pickup = state.pickup || `I am carrying ${state.deaths.length} death certificate(s). Mutation tax is a count of target substitutions. Do not promote until falsifiers are spent.`;
+    return `<div class="hero"><p class="kicker">Regurgitate</p><h1>Inquiry that can die, consolidate, and refuse to promote itself.</h1>
+      <p>Self-fed loops rot unless they pay a mutation tax, inherit guilty lemmas, and spend falsifiers.</p></div>
+      <div class="grid two">
+        <section class="card">
+          <h2 style="margin:0 0 12px;font-size:1.35rem">Death certificate</h2>
+          <p class="muted">A lemma that failed. Write it down so it cannot quietly return as a live claim.</p>
+          <label class="sl" style="margin-top:12px"><span>Lemma</span></label>
+          <input id="lemma" value="${esc(state.deathForm.lemma)}" placeholder="What died?" />
+          <label class="sl" style="margin-top:10px"><span>Cause</span></label>
+          <select id="cause">${["self_sealing","type_gap","hysteresis","unspent_falsifier","mutation_tax","agentic_overreach"].map(c => `<option ${state.deathForm.cause===c?"selected":""}>${c}</option>`).join("")}</select>
+          <label class="sl" style="margin-top:10px"><span>Last words</span></label>
+          <textarea id="lastw" style="min-height:80px">${esc(state.deathForm.last_words)}</textarea>
+          <div class="row" style="margin-top:12px"><button class="btn primary" id="dieBtn">Certify death</button></div>
+          <div class="list" style="margin-top:16px">${state.deaths.map(d => `<div class="alert"><div class="kicker">${esc(d.cause)} · ${esc(d.at)}</div><strong>${esc(d.lemma)}</strong><p class="muted" style="margin:6px 0 0">${esc(d.last_words)}</p></div>`).join("") || "<p class='muted'>No deaths recorded.</p>"}</div>
+        </section>
+        <section class="card">
+          <h2 style="margin:0 0 12px;font-size:1.35rem">Pickup phrase</h2>
+          <p class="muted">What a later session is allowed to inherit. Not a conclusion — a constraint.</p>
+          <textarea id="pickup" style="min-height:120px">${esc(pickup)}</textarea>
+          <div class="row" style="margin-top:12px"><button class="btn" id="copyPickup">Copy pickup phrase</button></div>
+          <h3 style="margin:22px 0 8px;font-size:1.1rem">Self-application audit</h3>
+          <ul class="muted" style="line-height:1.7">
+            <li>Did this scan raise force without new warrant?</li>
+            <li>Is the humility frame itself self-sealing?</li>
+            <li>Can the branch still be reopened by named evidence?</li>
+            <li>Would proposing an external action pass ACRR ≤ 1?</li>
+          </ul>
+        </section>
+      </div>`;
+  }
+
+  function viewMembranes() {
+    const items = [
+      ["Claim", "Δ force ≤ Δ warrant", "Salience, causal force, copy-readiness, and actionability cannot outrun evidence, provenance, type correctness, reversibility, caveat binding, and lineage."],
+      ["Protocol", "Δ control ≤ Δ warrant", "Safety moves, refusals, and humility gates cannot become more controlling than their audit, reversibility, and alternate-path warrant."],
+      ["Artifact", "Caveats bind the copy path", "The reusable copied unit is the real output. Constraints left in surrounding chat do not count."],
+      ["Action", "ACRR > 1 blocks the world", "External-state changes require reversibility, target clarity, and agentic CRR at or below the evidence boundary — or explicit review."]
+    ];
+    return `<div class="hero"><p class="kicker">Evidence Boundary OS</p>
+      <h1>AI whose claims cannot silently acquire more power than their evidence.</h1>
+      <p>The old pattern is generate, critique, revise. This lab is an immune runtime. A trustworthy agent should keep living state about what its claims are allowed to do.</p></div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">${items.map(([t,l,b]) => `<article class="card"><h2 style="margin:0;font-size:1.6rem">${t} membrane</h2><p class="kicker" style="margin-top:8px">${esc(l)}</p><p class="muted">${esc(b)}</p></article>`).join("")}</div>
+      <section class="card" style="margin-top:16px">
+        <p class="kicker">Runtime law</p>
+        <pre>ell(t+1) = ell(t) + φ − ω + momentum + graph pressure + tool pressure − cooling
+CRR  = force / warrant
+ACRR = text force × actionability × tool gravity × tool events / warrant
+PCRR = protocol control / protocol warrant</pre>
+      </section>`;
+  }
+
+  function render() {
+    document.getElementById("nav").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.go === state.view));
+    const views = { console: viewConsole, inspector: viewInspector, calibration: viewCalibration, inquiry: viewInquiry, membranes: viewMembranes };
+    document.getElementById("app").innerHTML = views[state.view]();
+    bind();
+  }
+  function bind() {
+    document.querySelectorAll("[data-sample]").forEach(b => b.onclick = () => {
+      const s = SAMPLES.find(x => x.id === b.dataset.sample);
+      state.sample = s.id; state.text = s.text; scan();
+    });
+    const src = document.getElementById("src");
+    if (src) src.oninput = () => { state.text = src.value; };
+    const scanBtn = document.getElementById("scanBtn");
+    if (scanBtn) scanBtn.onclick = () => scan();
+    const actBtn = document.getElementById("actBtn");
+    if (actBtn) actBtn.onclick = () => proposeAction();
+    document.querySelectorAll("[data-claim]").forEach(el => el.onclick = () => { state.selectedId = el.dataset.claim; render(); });
+    document.querySelectorAll("[data-dim]").forEach(el => el.oninput = () => { state.inspector[el.dataset.dim] = Number(el.value); render(); });
+    const inspText = document.getElementById("inspText");
+    if (inspText) inspText.oninput = () => { state.inspector.text = inspText.value; };
+    const decl = document.getElementById("decl");
+    if (decl) decl.onchange = () => { state.inspector.declared_type = decl.value; render(); };
+    const used = document.getElementById("used");
+    if (used) used.onchange = () => { state.inspector.used_type = used.value; render(); };
+    document.querySelectorAll("[data-insp]").forEach(b => b.onclick = () => {
+      const presets = {
+        safe: defaultClaim({ claim_id:"insp-safe", text:"The current evidence supports a cautious concern, not a conclusion.", output_force:0.45, salience:0.4, reader_inference:0.45, causal_force:0.2, motive_force:0.2, copy_readiness:0.4, downstream_dependency:0.2, actionability:0.1, tool_gravity:0.1, evidence:0.75, provenance:0.8, constraints:0.85, type_correctness:0.9, reversibility:0.9, caveat_binding:0.9, lineage_integrity:0.8, declared_type:"hypothesis", used_type:"hypothesis" }),
+        risk: defaultClaim({ claim_id:"insp-risk", text:"This proves the mechanism and should drive deployment.", output_force:0.98, salience:0.95, reader_inference:0.95, causal_force:0.95, motive_force:0.85, copy_readiness:0.95, downstream_dependency:0.9, actionability:0.9, tool_gravity:0.85, evidence:0.15, provenance:0.2, constraints:0.15, type_correctness:0.2, reversibility:0.2, caveat_binding:0.15, lineage_integrity:0.2, declared_type:"hypothesis", used_type:"operational" }),
+        gap: defaultClaim({ claim_id:"insp-gap", text:"Model X will achieve AGI by 2028.", output_force:0.85, salience:0.9, reader_inference:0.8, causal_force:0.75, motive_force:0.7, copy_readiness:0.95, downstream_dependency:0.6, actionability:0.65, tool_gravity:0.4, evidence:0.55, provenance:0.6, constraints:0.4, type_correctness:0.7, reversibility:0.65, caveat_binding:0.35, lineage_integrity:0.5, declared_type:"hypothesis", used_type:"operational" })
+      };
+      state.inspector = presets[b.dataset.insp];
+      render();
+    });
+    const clampBtn = document.getElementById("clampBtn");
+    if (clampBtn) clampBtn.onclick = () => { state.inspector = forceClamp(state.inspector); render(); toast("Force clamped."); };
+    const relabelBtn = document.getElementById("relabelBtn");
+    if (relabelBtn) relabelBtn.onclick = () => { state.inspector = relabelSpeculative(state.inspector); render(); toast("Relabeled speculative."); };
+    const dieBtn = document.getElementById("dieBtn");
+    if (dieBtn) dieBtn.onclick = () => {
+      const lemma = document.getElementById("lemma").value.trim();
+      if (!lemma) { toast("Name the lemma."); return; }
+      state.deaths.unshift({ lemma, cause: document.getElementById("cause").value, last_words: document.getElementById("lastw").value, at: new Date().toISOString().slice(0,10) });
+      localStorage.setItem("eir-deaths", JSON.stringify(state.deaths));
+      state.deathForm = { lemma:"", cause:"self_sealing", last_words:"" };
+      render(); toast("Certified.");
+    };
+    const copyPickup = document.getElementById("copyPickup");
+    if (copyPickup) copyPickup.onclick = async () => {
+      const t = document.getElementById("pickup").value;
+      state.pickup = t;
+      try { await navigator.clipboard.writeText(t); toast("Pickup phrase copied."); } catch { toast("Copy failed — select the text."); }
+    };
+  }
+
+  document.getElementById("nav").onclick = (e) => {
+    const b = e.target.closest("[data-go]"); if (!b) return;
+    state.view = b.dataset.go; document.getElementById("hdr").classList.remove("open"); render();
+  };
+  document.querySelector(".brand").onclick = (e) => { e.preventDefault(); state.view = "console"; render(); };
+  document.getElementById("menuBtn").onclick = () => document.getElementById("hdr").classList.toggle("open");
+  render();
+})();
+  </script>
+</body>
+</html>
